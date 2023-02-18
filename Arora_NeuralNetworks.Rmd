@@ -1,0 +1,100 @@
+---
+title: "Arora_NeuralNetworks"
+author: "Raghav Arora"
+date: "2022-11-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(ISLR)
+```
+
+```{r}
+Carseats
+car_recipe <- recipe(Sales ~ ., data = Carseats) %>% 
+  step_normalize(all_numeric()) %>% 
+  step_dummy(all_nominal(), -Sales)
+
+car_cvs <- vfold_cv(Carseats, v = 5)
+```
+
+1. Fit a neural network to the entire dataset. Report the cross-validated metrics.
+
+```{r}
+nn_mod <- mlp(
+  hidden_units = 12,
+  penalty = .01,
+  epochs = 50,
+  activation = "linear"
+) %>%
+  set_engine("keras") %>%
+  set_mode("regression")
+nn_wflow <- workflow() %>%
+  add_recipe(car_recipe) %>%
+  add_model(nn_mod)
+nn_fit_1 <- nn_wflow %>%
+  fit(Carseats)
+```
+
+```{r}
+nn_mod <- mlp(
+  hidden_units = 12,
+  penalty = .01,
+  epochs = 50,
+  activation = "linear"
+) %>%
+  set_engine("keras") %>%
+  set_mode("regression")
+nn_wflow <- workflow() %>%
+  add_recipe(car_recipe) %>%
+  add_model(nn_mod)
+nn_fit_1 <- nn_wflow %>%
+  fit_resamples(car_cvs)
+
+nn_fit_1 %>% collect_metrics()
+```
+
+2. Now, tune your neural network according to hidden_units and penalty to identify the best neural network model. Report the cross-validated metrics. Remember to consider the size of your dataset when specifying your model(s).
+
+```{r}
+nn_grid <- grid_regular(
+  hidden_units(c(2, 20)),
+  penalty(c(-5, 2)),
+  levels = 5
+)
+nn_mod <- mlp(
+  hidden_units = tune(),
+  penalty = tune(),
+  epochs = 50,
+  activation = "linear"
+) %>%
+  set_engine("keras") %>%
+  set_mode("regression")
+nn_wflow <- workflow() %>%
+  add_recipe(car_recipe) %>%
+  add_model(nn_mod)
+
+nn_grid_search <-
+  tune_grid(
+    nn_wflow,
+    resamples = car_cvs,
+    grid = nn_grid
+)
+tuning_metrics <- nn_grid_search %>%
+  collect_metrics()
+tuning_metrics
+```
+
+3. Are more hidden units necessarily better?
+
+- In our case more hidden units are better as they generally provide higher rsq and lower rmse values
+
+4. How do these results compare to your previous results using decision trees and random forests?
+
+- Neural Networks were a better model than both decision tress and random forest giving a lower RMSE value and a higher RSQ.
